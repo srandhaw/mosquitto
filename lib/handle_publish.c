@@ -115,6 +115,9 @@ int handle__publish(struct mosquitto *mosq)
 			message->msg.mid, message->msg.topic,
 			(long)message->msg.payloadlen);
 
+	log__printf(mosq, MOSQ_LOG_DEBUG,
+			"Client message is %s", message->msg.payload);
+
 	message->timestamp = mosquitto_time();
 	switch(message->msg.qos){
 		case 0:

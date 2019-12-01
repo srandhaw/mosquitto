@@ -295,6 +295,7 @@ int handle__publish(struct mosquitto_db *db, struct mosquitto *context)
 	}
 
 	log__printf(NULL, MOSQ_LOG_DEBUG, "Received PUBLISH from %s (d%d, q%d, r%d, m%d, '%s', ... (%ld bytes))", context->id, dup, qos, retain, mid, topic, (long)payloadlen);
+	log__printf(NULL, MOSQ_LOG_DEBUG, "Client message is %s ", (char *)UHPA_ACCESS(payload, payloadlen));
 	if(qos > 0){
 		db__message_store_find(context, mid, &stored);
 	}
