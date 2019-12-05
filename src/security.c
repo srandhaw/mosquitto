@@ -417,8 +417,6 @@ int mosquitto_security_module_cleanup(struct mosquitto_db *db)
 {
 	int i;
 
-	mosquitto_security_cleanup(db, false);
-
 	security__module_cleanup_single(&db->config->security_options);
 
 	for(i=0; i<db->config->listener_count; i++){

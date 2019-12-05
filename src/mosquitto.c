@@ -246,7 +246,11 @@ int main(int argc, char *argv[])
 
 	config__init(&int_db, &config);
 	rc = config__parse_args(&int_db, &config, argc, argv);
-	if(rc != MOSQ_ERR_SUCCESS) return rc;
+	if(rc != MOSQ_ERR_SUCCESS) {
+		config__cleanup(&config);
+		net__broker_cleanup();
+		return rc;
+	}
 	int_db.config = &config;
 
 	if(config.daemon){
@@ -260,6 +264,8 @@ int main(int argc, char *argv[])
 			fclose(pid);
 		}else{
 			log__printf(NULL, MOSQ_LOG_ERR, "Error: Unable to write pid file.");
+			config__cleanup(&config);
+			net__broker_cleanup();
 			return 1;
 		}
 	}
@@ -267,6 +273,9 @@ int main(int argc, char *argv[])
 	rc = db__open(&config, &int_db);
 	if(rc != MOSQ_ERR_SUCCESS){
 		log__printf(NULL, MOSQ_LOG_ERR, "Error: Couldn't open database.");
+		if(config.pid_file) remove(config.pid_file);
+		config__cleanup(&config);
+		net__broker_cleanup();
 		return rc;
 	}
 
@@ -274,6 +283,10 @@ int main(int argc, char *argv[])
 	 * logging to topics */
 	if(log__init(&config)){
 		rc = 1;
+		if(config.pid_file) remove(config.pid_file);
+		db__close(&int_db);
+		config__cleanup(&config);
+		net__broker_cleanup();
 		return rc;
 	}
 	log__printf(NULL, MOSQ_LOG_INFO, "mosquitto version %s starting", VERSION);
@@ -284,9 +297,24 @@ int main(int argc, char *argv[])
 	}
 
 	rc = mosquitto_security_module_init(&int_db);
-	if(rc) return rc;
+	if(rc) {
+		if(config.pid_file) remove(config.pid_file);
+		log__close(&config);
+		db__close(&int_db);
+		config__cleanup(&config);
+		net__broker_cleanup();
+		return rc;
+	}
 	rc = mosquitto_security_init(&int_db, false);
-	if(rc) return rc;
+	if(rc) {
+		if(config.pid_file) remove(config.pid_file);
+		mosquitto_security_module_cleanup(&int_db);
+		log__close(&config);
+		db__close(&int_db);
+		config__cleanup(&config);
+		net__broker_cleanup();
+		return rc;
+	}
 
 #ifdef WITH_SYS_TREE
 	sys_tree__init(&int_db);
@@ -296,27 +324,36 @@ int main(int argc, char *argv[])
 	for(i=0; i<config.listener_count; i++){
 		if(config.listeners[i].protocol == mp_mqtt){
 			if(net__socket_listen(&config.listeners[i])){
+				if(config.pid_file) remove(config.pid_file);
+				mosquitto_security_cleanup(&int_db, false);
+				mosquitto_security_module_cleanup(&int_db);
+				log__close(&config);
 				db__close(&int_db);
-				if(config.pid_file){
-					remove(config.pid_file);
-				}
+				config__cleanup(&config);
+				net__broker_cleanup();
 				return 1;
 			}
 			listensock_count += config.listeners[i].sock_count;
 			listensock = mosquitto__realloc(listensock, sizeof(mosq_sock_t)*listensock_count);
 			if(!listensock){
+				if(config.pid_file) remove(config.pid_file);
+				mosquitto_security_cleanup(&int_db, false);
+				mosquitto_security_module_cleanup(&int_db);
+				log__close(&config);
 				db__close(&int_db);
-				if(config.pid_file){
-					remove(config.pid_file);
-				}
+				config__cleanup(&config);
+				net__broker_cleanup();
 				return 1;
 			}
 			for(j=0; j<config.listeners[i].sock_count; j++){
 				if(config.listeners[i].socks[j] == INVALID_SOCKET){
+					if(config.pid_file) remove(config.pid_file);
+					mosquitto_security_cleanup(&int_db, false);
+					mosquitto_security_module_cleanup(&int_db);
+					log__close(&config);
 					db__close(&int_db);
-					if(config.pid_file){
-						remove(config.pid_file);
-					}
+					config__cleanup(&config);
+					net__broker_cleanup();
 					return 1;
 				}
 				listensock[listensock_index] = config.listeners[i].socks[j];
@@ -327,6 +364,15 @@ int main(int argc, char *argv[])
 			config.listeners[i].ws_context = mosq_websockets_init(&config.listeners[i], &config);
 			if(!config.listeners[i].ws_context){
 				log__printf(NULL, MOSQ_LOG_ERR, "Error: Unable to create websockets listener on port %d.", config.listeners[i].port);
+				if(config.pid_file){
+						remove(config.pid_file);
+				}
+				mosquitto_security_cleanup(&int_db, false);
+				mosquitto_security_module_cleanup(&int_db);
+				log__close(&config);
+				db__close(&int_db);
+				config__cleanup(&config);
+				net__broker_cleanup();
 				return 1;
 			}
 #endif
@@ -334,7 +380,7 @@ int main(int argc, char *argv[])
 	}
 
 	rc = drop_privileges(&config, false);
-	if(rc != MOSQ_ERR_SUCCESS) return rc;
+	if(rc != MOSQ_ERR_SUCCESS) goto cleanup;
 
 	signal(SIGINT, handle_sigint);
 	signal(SIGTERM, handle_sigint);
@@ -368,6 +414,7 @@ int main(int argc, char *argv[])
 
 	log__printf(NULL, MOSQ_LOG_INFO, "mosquitto version %s terminating", VERSION);
 
+cleanup:
 #ifdef WITH_WEBSOCKETS
 	for(i=0; i<int_db.config->listener_count; i++){
 		if(int_db.config->listeners[i].ws_context){
@@ -429,6 +476,7 @@ int main(int argc, char *argv[])
 		mosquitto__free(listensock);
 	}
 
+	mosquitto_security_cleanup(&int_db, false);
 	mosquitto_security_module_cleanup(&int_db);
 
 	if(config.pid_file){
