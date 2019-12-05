@@ -283,6 +283,7 @@ void config__cleanup(struct mosquitto__config *config)
 #endif
 
 	mosquitto__free(config->clientid_prefixes);
+	mosquitto__free(config->log_timestamp_format);
 	mosquitto__free(config->persistence_location);
 	mosquitto__free(config->persistence_file);
 	mosquitto__free(config->persistence_filepath);
