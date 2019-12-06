@@ -100,7 +100,7 @@ WITH_EPOLL:=yes
 WITH_BUNDLED_DEPS:=yes
 
 # Build with coverage options
-WITH_COVERAGE:=no
+WITH_COVERAGE:=yes
 
 # Build with unix domain socket support
 WITH_UNIX_SOCKETS:=yes
@@ -322,15 +322,19 @@ ifeq ($(WITH_BUNDLED_DEPS),yes)
 endif
 
 ifeq ($(WITH_COVERAGE),yes)
-	BROKER_CFLAGS:=$(BROKER_CFLAGS) -coverage
-	BROKER_LDFLAGS:=$(BROKER_LDFLAGS) -coverage
-	LIB_CFLAGS:=$(LIB_CFLAGS) -coverage
-	LIB_LDFLAGS:=$(LIB_LDFLAGS) -coverage
-	CLIENT_CFLAGS:=$(CLIENT_CFLAGS) -coverage
-	CLIENT_LDFLAGS:=$(CLIENT_LDFLAGS) -coverage
+	BROKER_CFLAGS:=$(BROKER_CFLAGS) -coverage -fsanitize=address -fno-omit-frame-pointer
+	BROKER_LDFLAGS:=$(BROKER_LDFLAGS) -coverage -fsanitize=address -fno-omit-frame-pointer
+	LIB_CFLAGS:=$(LIB_CFLAGS) -coverage -fsanitize=address -fno-omit-frame-pointer
+	LIB_LDFLAGS:=$(LIB_LDFLAGS) -coverage -fsanitize=address -fno-omit-frame-pointer
+	CLIENT_CFLAGS:=$(CLIENT_CFLAGS) -coverage -fsanitize=address -fno-omit-frame-pointer
+	CLIENT_LDFLAGS:=$(CLIENT_LDFLAGS) -coverage -fsanitize=address -fno-omit-frame-pointer
 endif
 
 ifeq ($(WITH_CJSON),yes)
+	BROKER_CFLAGS:=$(BROKER_CFLAGS) -DWITH_CJSON -I/usr/include/cjson
+	BROKER_LDADD:=$(BROKER_LDADD) -lcjson
+	LIB_CFLAGS:=$(LIB_CFLAGS) -DWITH_CJSON -I/usr/include/cjson
+	LIB_LDFLAGS:=$(LIB_LDFLAGS) -lcjson
 	CLIENT_CFLAGS:=$(CLIENT_CFLAGS) -DWITH_CJSON -I/usr/include/cjson
 	CLIENT_LDADD:=$(CLIENT_LDADD) -lcjson
 endif
