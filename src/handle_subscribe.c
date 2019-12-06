@@ -184,12 +184,13 @@ int handle__subscribe(struct mosquitto_db *db, struct mosquitto *context)
 				log__printf(NULL, MOSQ_LOG_SUBSCRIBE, "%s %d %s", context->id, qos, sub);
 			}
 			mosquitto__free(sub);
-
+			//log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: payload BEFORE modifying %s and payloadlen %d", (char *) payload, payloadlen);
 			tmp_payload = mosquitto__realloc(payload, payloadlen + 1);
 			if(tmp_payload){
 				payload = tmp_payload;
 				payload[payloadlen] = qos;
 				payloadlen++;
+				//log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: payload AFTER modifying %s and payloadlen %d", (char *) payload, payloadlen);
 			}else{
 				mosquitto__free(payload);
 
@@ -210,7 +211,8 @@ int handle__subscribe(struct mosquitto_db *db, struct mosquitto *context)
 #ifdef WITH_PERSISTENCE
 	db->persistence_changes++;
 #endif
-
+	/* BASH DEBUG */
+	//sub__tree_print(db->subs, 0);
 	return rc;
 }
 

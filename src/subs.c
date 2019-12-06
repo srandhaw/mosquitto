@@ -713,6 +713,13 @@ int sub__add(struct mosquitto_db *db, struct mosquitto *context, const char *sub
 
 	if(sub__topic_tokenise(sub, &tokens)) return 1;
 
+	/* BASH DEBUG */
+/*	struct sub__token *temp = tokens;
+	while(temp) {
+		log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: sub__add - topic: %s and topiclen: %d", temp->topic, temp->topic_len);
+		temp = temp->next;
+	}
+*/
 	if(!strcmp(tokens->topic, "$share")){
 		if(!tokens->next || !tokens->next->next){
 			sub__topic_tokens_free(tokens);
