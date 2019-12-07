@@ -405,6 +405,7 @@ int config__parse_args(struct mosquitto_db *db, struct mosquitto__config *config
 				db->config_file = argv[i+1];
 
 				if(config__read(db, config, false)){
+					config__cleanup(config);
 					return MOSQ_ERR_INVAL;
 				}
 			}else{

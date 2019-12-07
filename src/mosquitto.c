@@ -246,7 +246,12 @@ int main(int argc, char *argv[])
 
 	config__init(&int_db, &config);
 	rc = config__parse_args(&int_db, &config, argc, argv);
-	if(rc != MOSQ_ERR_SUCCESS) return rc;
+	log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: config__parse val is %d", rc);
+	if(rc != MOSQ_ERR_SUCCESS){
+		log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: error in parsing configuration");
+		config__cleanup(&config);
+		return rc;
+	}
 	int_db.config = &config;
 
 	if(config.daemon){
@@ -274,7 +279,7 @@ int main(int argc, char *argv[])
 	 * logging to topics */
 	if(log__init(&config)){
 		rc = 1;
-		return rc;
+		goto cleanup;
 	}
 	log__printf(NULL, MOSQ_LOG_INFO, "mosquitto version %s starting", VERSION);
 	if(int_db.config_file){
@@ -284,9 +289,9 @@ int main(int argc, char *argv[])
 	}
 
 	rc = mosquitto_security_module_init(&int_db);
-	if(rc) return rc;
+	if(rc) goto cleanup;
 	rc = mosquitto_security_init(&int_db, false);
-	if(rc) return rc;
+	if(rc) goto cleanup;
 
 #ifdef WITH_SYS_TREE
 	sys_tree__init(&int_db);
@@ -334,7 +339,7 @@ int main(int argc, char *argv[])
 	}
 
 	rc = drop_privileges(&config, false);
-	if(rc != MOSQ_ERR_SUCCESS) return rc;
+	if(rc != MOSQ_ERR_SUCCESS) goto cleanup;
 
 	signal(SIGINT, handle_sigint);
 	signal(SIGTERM, handle_sigint);
@@ -367,6 +372,9 @@ int main(int argc, char *argv[])
 	rc = mosquitto_main_loop(&int_db, listensock, listensock_count);
 
 	log__printf(NULL, MOSQ_LOG_INFO, "mosquitto version %s terminating", VERSION);
+
+
+cleanup:
 
 #ifdef WITH_WEBSOCKETS
 	for(i=0; i<int_db.config->listener_count; i++){

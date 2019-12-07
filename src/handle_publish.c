@@ -333,8 +333,10 @@ int handle__publish(struct mosquitto_db *db, struct mosquitto *context)
 			break;
 		case 2:
 			if(dup == 0){
+				log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: Not a duplicate message");
 				res = db__message_insert(db, context, mid, mosq_md_in, qos, retain, stored, NULL);
 			}else{
+				log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: duplicate message");
 				res = 0;
 			}
 			/* db__message_insert() returns 2 to indicate dropped message
