@@ -609,6 +609,7 @@ static int sub__search(struct mosquitto_db *db, struct mosquitto__subhier *subhi
 	if(tokens){
 		/* Check for literal match */
 		HASH_FIND(hh, subhier->children, tokens->topic, tokens->topic_len, branch);
+		//log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: sub__search topic is %s ", tokens->topic);
 
 		if(branch){
 			rc = sub__search(db, branch, tokens->next, source_id, topic, qos, retain, stored, set_retain);
@@ -620,6 +621,7 @@ static int sub__search(struct mosquitto_db *db, struct mosquitto__subhier *subhi
 			if(!tokens->next){
 				rc = subs__process(db, branch, source_id, topic, qos, retain, stored, set_retain);
 				if(rc == MOSQ_ERR_SUCCESS){
+					log__printf(NULL, MOSQ_LOG_DEBUG, "subs__process %s have subscribers", tokens->topic);
 					have_subscribers = true;
 				}else if(rc != MOSQ_ERR_NO_SUBSCRIBERS){
 					return rc;

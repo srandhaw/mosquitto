@@ -288,6 +288,7 @@ int mosquitto_main_loop(struct mosquitto_db *db, mosq_sock_t *listensock, int li
 						|| context->bridge
 						|| now - context->last_msg_in <= (time_t)(context->keepalive)*3/2){
 
+					log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: in a loop the context id is %s", context->id);
 					if(db__message_write(db, context) == MOSQ_ERR_SUCCESS){
 #ifdef WITH_EPOLL
 						if(context->current_out_packet || context->state == mosq_cs_connect_pending || context->ws_want_write){

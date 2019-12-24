@@ -634,7 +634,7 @@ int db__message_store(struct mosquitto_db *db, const struct mosquitto *source, u
 {
 	struct mosquitto_msg_store *temp = NULL;
 	int rc = MOSQ_ERR_SUCCESS;
-
+	if(source) log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: Client %s adding topic %s to the db", source->id, topic);
 	assert(db);
 	assert(stored);
 
@@ -701,6 +701,7 @@ int db__message_store(struct mosquitto_db *db, const struct mosquitto *source, u
 	}else{
 		temp->db_id = store_id;
 	}
+	//log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: Client/temp db_id %ld", temp->db_id);
 
 	db__msg_store_add(db, temp);
 
@@ -725,6 +726,7 @@ int db__message_store_find(struct mosquitto *context, uint16_t mid, struct mosqu
 	if(!context) return MOSQ_ERR_INVAL;
 
 	*stored = NULL;
+	if(context) log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: Context %s searching in inflight queue", context->id);
 	DL_FOREACH(context->msgs_in.inflight, tail){
 		if(tail->store->source_mid == mid){
 			*stored = tail->store;
@@ -732,12 +734,15 @@ int db__message_store_find(struct mosquitto *context, uint16_t mid, struct mosqu
 		}
 	}
 
+	if(context) log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: Context %s searching in queued queue", context->id);
 	DL_FOREACH(context->msgs_in.queued, tail){
+		if(context) log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: Context %s searching in queued queue", context->id);
 		if(tail->store->source_mid == mid){
 			*stored = tail->store;
 			return MOSQ_ERR_SUCCESS;
 		}
 	}
+	if(context) log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: Context %s has not stored in any msg queue", context->id);
 
 	return 1;
 }
@@ -949,6 +954,7 @@ int db__message_release_incoming(struct mosquitto_db *db, struct mosquitto *cont
 
 int db__message_write(struct mosquitto_db *db, struct mosquitto *context)
 {
+	log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: db__message_write: the context id is %s", context->id);
 	int rc;
 	struct mosquitto_client_msg *tail, *tmp;
 	uint16_t mid;
