@@ -58,6 +58,10 @@ Contributors:
 
 #include "utlist.h"
 
+#ifdef WITH_CJSON
+#  include <cJSON.h>
+#endif
+
 static int subs__send(struct mosquitto_db *db, struct mosquitto__subleaf *leaf, const char *topic, int qos, int retain, struct mosquitto_msg_store *stored)
 {
 	bool client_retain;
@@ -659,6 +663,34 @@ int sub__messages_queue(struct mosquitto_db *db, const char *source_id, const ch
 
 	assert(db);
 	assert(topic);
+
+#ifdef WITH_CJSON
+	// BASH check
+	if(topic[0] != '$') {
+		//cJSON *root;
+		char * bash_tmp = (char *)UHPA_ACCESS((**stored).payload, (**stored).payloadlen);
+		//char bash_tmp[] = "{\"ts\": \"1000\"}";
+		//log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: sub__messages_queue message is %s and source id is NULL? %d", (char *)UHPA_ACCESS_PAYLOAD(*stored), (*stored)->source_id == NULL);
+		log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: sub__mesages_queue topic is %s and message is %s", topic, bash_tmp);
+		// bash_tmp = (char *)UHPA_ACCESS((**stored).payload, (**stored).payloadlen);
+		// TODO something wrong with accessing UHPA_ACCESS with asan.
+
+		cJSON *monitor_json = cJSON_Parse(bash_tmp);
+		if(monitor_json == NULL) {
+			const char *error_ptr = cJSON_GetErrorPtr();
+			if(error_ptr) {
+				log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: cJSON error %s", error_ptr);
+			}
+		} else {
+			log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: cJSON parse completed");
+			cJSON *bash_ts = NULL;
+			bash_ts = cJSON_GetObjectItemCaseSensitive(monitor_json, "ts");
+			if(cJSON_IsNumber(bash_ts)) {
+				log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: timestamp value is %u", (uint64_t)bash_ts->valuedouble);
+			}
+		}
+	}
+#endif
 
 	if(sub__topic_tokenise(topic, &tokens)) return 1;
 

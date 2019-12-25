@@ -100,7 +100,7 @@ WITH_EPOLL:=yes
 WITH_BUNDLED_DEPS:=yes
 
 # Build with coverage options
-WITH_COVERAGE:=yes
+WITH_COVERAGE:=no
 
 # Build with unix domain socket support
 WITH_UNIX_SOCKETS:=yes
