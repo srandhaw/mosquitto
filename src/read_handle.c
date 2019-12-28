@@ -44,6 +44,7 @@ int handle__packet(struct mosquitto_db *db, struct mosquitto *context)
 		case CMD_PUBCOMP:
 			return handle__pubackcomp(db, context, "PUBCOMP");
 		case CMD_PUBLISH:
+			log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: This is before calling handle__publish");
 			return handle__publish(db, context);
 		case CMD_PUBREC:
 			return handle__pubrec(db, context);

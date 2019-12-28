@@ -62,6 +62,8 @@ Contributors:
 #  include <cJSON.h>
 #endif
 
+extern struct bash_global_list *global_queue;
+
 static int subs__send(struct mosquitto_db *db, struct mosquitto__subleaf *leaf, const char *topic, int qos, int retain, struct mosquitto_msg_store *stored)
 {
 	bool client_retain;
@@ -655,6 +657,28 @@ int sub__remove(struct mosquitto_db *db, struct mosquitto *context, const char *
 	return rc;
 }
 
+static int order_desc(struct bash_global_list *a, struct bash_global_list *b)
+{
+    return (a->timestamp > b->timestamp) ? -1 : (a->timestamp < b->timestamp);
+}
+
+void bash_sub__messages_queue(struct mosquitto_db *db, const char *source_id, const char *topic, int qos, int retain, struct mosquitto_msg_store **stored)
+{
+	/* I'm going to ignore the return flag for now */
+	struct mosquitto__subhier *subhier;
+	struct sub__token *tokens = NULL;
+
+	sub__topic_tokenise(topic, &tokens);
+	HASH_FIND(hh, db->subs, tokens->topic, tokens->topic_len, subhier);
+		if(subhier){
+			sub__search(db, subhier, tokens, source_id, topic, qos, retain, *stored);
+	}
+
+	sub__topic_tokens_free(tokens);
+	/* Remove our reference and free if needed. */
+	db__msg_store_ref_dec(db, stored);
+}
+
 int sub__messages_queue(struct mosquitto_db *db, const char *source_id, const char *topic, int qos, int retain, struct mosquitto_msg_store **stored)
 {
 	int rc = 0, rc2;
@@ -664,11 +688,17 @@ int sub__messages_queue(struct mosquitto_db *db, const char *source_id, const ch
 	assert(db);
 	assert(topic);
 
-#ifdef WITH_CJSON
+	if(sub__topic_tokenise(topic, &tokens)) return 1;
+
 	// BASH check
 	if(topic[0] != '$') {
+
+		/* keep this till we release afte queueing */
+		db__msg_store_ref_inc(*stored);
+
 		//cJSON *root;
 		char * bash_tmp = (char *)UHPA_ACCESS((**stored).payload, (**stored).payloadlen);
+		struct bash_global_list *temp;
 		//char bash_tmp[] = "{\"ts\": \"1000\"}";
 		//log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: sub__messages_queue message is %s and source id is NULL? %d", (char *)UHPA_ACCESS_PAYLOAD(*stored), (*stored)->source_id == NULL);
 		log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: sub__mesages_queue topic is %s and message is %s", topic, bash_tmp);
@@ -676,6 +706,7 @@ int sub__messages_queue(struct mosquitto_db *db, const char *source_id, const ch
 		// TODO something wrong with accessing UHPA_ACCESS with asan.
 
 		cJSON *monitor_json = cJSON_Parse(bash_tmp);
+		cJSON *bash_ts = NULL;
 		if(monitor_json == NULL) {
 			const char *error_ptr = cJSON_GetErrorPtr();
 			if(error_ptr) {
@@ -683,40 +714,55 @@ int sub__messages_queue(struct mosquitto_db *db, const char *source_id, const ch
 			}
 		} else {
 			log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: cJSON parse completed");
-			cJSON *bash_ts = NULL;
 			bash_ts = cJSON_GetObjectItemCaseSensitive(monitor_json, "ts");
 			if(cJSON_IsNumber(bash_ts)) {
-				log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: timestamp value is %u", (uint64_t)bash_ts->valuedouble);
+				log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: timestamp value is %lu", (uint64_t)bash_ts->valuedouble);
 			}
 		}
-	}
-#endif
 
-	if(sub__topic_tokenise(topic, &tokens)) return 1;
-
-	/* Protect this message until we have sent it to all
-	clients - this is required because websockets client calls
-	db__message_write(), which could remove the message if ref_count==0.
-	*/
-	db__msg_store_ref_inc(*stored);
-
-	HASH_FIND(hh, db->subs, tokens->topic, tokens->topic_len, subhier);
-	if(subhier){
-		rc = sub__search(db, subhier, tokens, source_id, topic, qos, retain, *stored);
-	}
-
-	if(retain){
-		rc2 = retain__store(db, topic, *stored, tokens);
-		if(rc2){
-			sub__topic_tokens_free(tokens);
-			db__msg_store_ref_dec(db, stored);
-			return rc2;
+		temp = (struct bash_global_list *) mosquitto__calloc(1, sizeof(struct bash_global_list));
+		if(!temp) {
+			log__printf(NULL, MOSQ_LOG_DEBUG, "Unable to get mem for bash_global_list");
+			return MOSQ_ERR_NOMEM;
 		}
-	}
-	sub__topic_tokens_free(tokens);
-	/* Remove our reference and free if needed. */
-	db__msg_store_ref_dec(db, stored);
 
+		temp->db = db;
+		temp->topic = mosquitto__strdup(topic);
+		temp->source_id = mosquitto__strdup(source_id);
+		temp->qos = qos;
+		temp->retain = retain;
+		temp->timestamp = bash_ts ? (long unsigned)bash_ts->valuedouble : time(NULL);
+		temp->stored = *stored;
+
+		CDL_INSERT_INORDER(global_queue, temp, order_desc);
+		sub__topic_tokens_free(tokens);
+		rc = MOSQ_ERR_SUCCESS;
+
+	} else {
+
+		/* Protect this message until we have sent it to all
+		clients - this is required because websockets client calls
+		db__message_write(), which could remove the message if ref_count==0.
+		*/
+		db__msg_store_ref_inc(*stored);
+
+		HASH_FIND(hh, db->subs, tokens->topic, tokens->topic_len, subhier);
+		if(subhier){
+			rc = sub__search(db, subhier, tokens, source_id, topic, qos, retain, *stored);
+		}
+
+		if(retain){
+			rc2 = retain__store(db, topic, *stored, tokens);
+			if(rc2){
+				sub__topic_tokens_free(tokens);
+				db__msg_store_ref_dec(db, stored);
+				return rc2;
+			}
+		}
+		sub__topic_tokens_free(tokens);
+		/* Remove our reference and free if needed. */
+		db__msg_store_ref_dec(db, stored);
+	}
 	return rc;
 }
 

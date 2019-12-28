@@ -54,6 +54,8 @@ Contributors:
 #include "util_mosq.h"
 
 struct mosquitto_db int_db;
+struct bash_global_list *global_queue = NULL;
+
 
 bool flag_reload = false;
 #ifdef WITH_PERSISTENCE

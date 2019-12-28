@@ -43,6 +43,7 @@ Contributors:
 #  include <sys/socket.h>
 #endif
 #include <time.h>
+#include <utlist.h>
 
 #ifdef WITH_WEBSOCKETS
 #  include <libwebsockets.h>
@@ -62,6 +63,8 @@ extern bool flag_db_backup;
 #endif
 extern bool flag_tree_print;
 extern int run;
+struct bash_global_list *temp;
+extern struct bash_global_list *global_queue;
 
 #ifdef WITH_EPOLL
 static void loop_handle_reads_writes(struct mosquitto_db *db, mosq_sock_t sock, uint32_t events);
@@ -190,6 +193,22 @@ int mosquitto_main_loop(struct mosquitto_db *db, mosq_sock_t *listensock, int li
 #endif
 
 	while(run){
+
+		log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: looping....................................");
+		temp = NULL;
+		CDL_FOREACH(global_queue, temp){
+        	log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: ts %lu", temp->timestamp);
+    	}
+		if(global_queue) {
+			temp = global_queue;
+			//CDL_DELETE(global_queue, temp);
+			log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: 2nd ts %lu and topic is %s", temp->timestamp, temp->topic);
+			bash_sub__messages_queue(temp->db, temp->source_id, temp->topic, temp->qos, temp->retain, &temp->stored);
+			CDL_DELETE(global_queue, temp);
+			mosquitto__free(temp);
+		}
+
+
 		context__free_disused(db);
 #ifdef WITH_SYS_TREE
 		if(db->config->sys_interval > 0){

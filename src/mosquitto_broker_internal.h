@@ -439,6 +439,18 @@ struct mosquitto__acl_user{
 	struct mosquitto__acl *acl;
 };
 
+struct bash_global_list{
+	char *topic;
+	struct mosquitto_db *db;
+	char *source_id;
+	int qos;
+	int retain;
+	time_t timestamp;
+	struct mosquitto_msg_store *stored;
+	struct bash_global_list *next;
+	struct bash_global_list *prev;
+};
+
 struct mosquitto_db{
 	dbid_t last_db_id;
 	struct mosquitto__subhier *subs;
@@ -665,6 +677,7 @@ void sub__tree_print(struct mosquitto__subhier *root, int level);
 int sub__clean_session(struct mosquitto_db *db, struct mosquitto *context);
 int sub__retain_queue(struct mosquitto_db *db, struct mosquitto *context, const char *sub, int sub_qos, uint32_t subscription_identifier);
 int sub__messages_queue(struct mosquitto_db *db, const char *source_id, const char *topic, int qos, int retain, struct mosquitto_msg_store **stored);
+void bash_sub__messages_queue(struct mosquitto_db *db, const char *source_id, const char *topic, int qos, int retain, struct mosquitto_msg_store **stored);
 int sub__topic_tokenise(const char *subtopic, struct sub__token **topics);
 void sub__topic_tokens_free(struct sub__token *tokens);
 
