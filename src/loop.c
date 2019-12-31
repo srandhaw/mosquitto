@@ -199,6 +199,8 @@ int mosquitto_main_loop(struct mosquitto_db *db, mosq_sock_t *listensock, int li
 		CDL_FOREACH(global_queue, temp){
         	log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: ts %lu", temp->timestamp);
     	}
+
+		/*
 		if(global_queue) {
 			temp = global_queue;
 			//CDL_DELETE(global_queue, temp);
@@ -207,7 +209,15 @@ int mosquitto_main_loop(struct mosquitto_db *db, mosq_sock_t *listensock, int li
 			CDL_DELETE(global_queue, temp);
 			mosquitto__free(temp);
 		}
+		*/
+		while(global_queue && (global_queue->prev->timestamp < (time(NULL) - 5))) {
+			temp = global_queue->prev;
+			log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: 2nd ts %lu and topic is %s", temp->timestamp, temp->topic);
+			bash_sub__messages_queue(temp->db, temp->source_id, temp->topic, temp->qos, temp->retain, &temp->stored);
+			CDL_DELETE(global_queue, temp);
+			mosquitto__free(temp);
 
+		}
 
 		context__free_disused(db);
 #ifdef WITH_SYS_TREE
