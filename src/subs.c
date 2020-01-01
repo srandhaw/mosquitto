@@ -701,7 +701,7 @@ int sub__messages_queue(struct mosquitto_db *db, const char *source_id, const ch
 		struct bash_global_list *temp;
 		//char bash_tmp[] = "{\"ts\": \"1000\"}";
 		//log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: sub__messages_queue message is %s and source id is NULL? %d", (char *)UHPA_ACCESS_PAYLOAD(*stored), (*stored)->source_id == NULL);
-		log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: sub__mesages_queue topic is %s and message is %s", topic, bash_tmp);
+		//log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: sub__mesages_queue topic is %s and message is %s", topic, bash_tmp);
 		// bash_tmp = (char *)UHPA_ACCESS((**stored).payload, (**stored).payloadlen);
 		// TODO something wrong with accessing UHPA_ACCESS with asan.
 
