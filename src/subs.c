@@ -697,7 +697,13 @@ int sub__messages_queue(struct mosquitto_db *db, const char *source_id, const ch
 		db__msg_store_ref_inc(*stored);
 
 		//cJSON *root;
-		char * bash_tmp = (char *)UHPA_ACCESS((**stored).payload, (**stored).payloadlen);
+		char * bash_tmp = (char *)mosquitto__malloc((**stored).payloadlen + 1);
+		if(!bash_tmp) {
+			log__printf(NULL, MOSQ_LOG_DEBUG, "Unable to get mem for bash_tmp");
+			return MOSQ_ERR_NOMEM;
+		}
+		memcpy(bash_tmp, (char *)UHPA_ACCESS((**stored).payload, (**stored).payloadlen), (**stored).payloadlen);
+		bash_tmp[(**stored).payloadlen] = '\0';
 		struct bash_global_list *temp;
 		//char bash_tmp[] = "{\"ts\": \"1000\"}";
 		//log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: sub__messages_queue message is %s and source id is NULL? %d", (char *)UHPA_ACCESS_PAYLOAD(*stored), (*stored)->source_id == NULL);
@@ -736,6 +742,7 @@ int sub__messages_queue(struct mosquitto_db *db, const char *source_id, const ch
 
 		CDL_INSERT_INORDER(global_queue, temp, order_desc);
 		sub__topic_tokens_free(tokens);
+		mosquitto__free(bash_tmp);
 		rc = MOSQ_ERR_SUCCESS;
 
 	} else {

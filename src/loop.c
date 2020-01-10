@@ -217,6 +217,8 @@ int mosquitto_main_loop(struct mosquitto_db *db, mosq_sock_t *listensock, int li
 			//log__printf(NULL, MOSQ_LOG_DEBUG, "BASH: 2nd ts %lu and topic is %s", temp->timestamp, temp->topic);
 			bash_sub__messages_queue(temp->db, temp->source_id, temp->topic, temp->qos, temp->retain, &temp->stored);
 			CDL_DELETE(global_queue, temp);
+			mosquitto__free(temp->topic);
+			mosquitto__free(temp->source_id);
 			mosquitto__free(temp);
 
 		}
